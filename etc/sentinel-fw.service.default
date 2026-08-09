@@ -4,10 +4,14 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
-EnvironmentFile=/etc/default/sentinel-dynfw-client
-Type=notify
-RuntimeDirectory=sentinel
-ExecStart=/usr/local/bin/sentinel-dynfw-client --cache-dir "${RUNTIME_DIRECTORY}" --backend "${DYNFW_BACKEND}" --table "${DYNFW_NFT_TABLE}" --ipset $DYNFW_SET $DYNFW_ARGS
+Type=exec
+EnvironmentFile=/opt/sentinel-fw/etc/variables
+WorkingDirectory=/opt/sentinel-fw
+RuntimeDirectory=sentinel-fw
+
+ExecStart=/opt/sentinel-fw/env/bin/python src/main.py --cache-dir ${RUNTIME_DIRECTORY} --backend nftables --nft-table ${DYNFW_NFT_TABLE} --ipset4 ${DYNFW_SET_V4} --ipset6 ${DYNFW_SET_V6} --expand-ipv6-prefix ${DYNFW_EXPAND_IPV6_PREFIX} $DYNFW_ARGS
+KillSignal=SIGINT
+
 ProtectSystem=strict
 ProtectHome=yes
 ProtectProc=invisible
@@ -28,7 +32,8 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native
-Restart=on-abnormal
+
+Restart=on-failure
 RestartSec=5
 TimeoutStopSec=5
 StartLimitBurst=3

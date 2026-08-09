@@ -1,0 +1,19 @@
+# Default settings for sentinel-dynfw-client
+# (Turris Sentinel dynamic firewall client).
+
+# Which backend to use, either "ipset" or "nftables".
+DYNFW_BACKEND="nftables"
+
+# Nftables table where the set speficied above will be created.
+# Ignored if using Ipset.
+DYNFW_NFT_TABLE="inet sentinel"
+
+# IP addresses set name.
+DYNFW_SET_V4="dynfw-block-v4"
+DYNFW_SET_V6="dynfw-block-v6"
+
+# If IPv6 is blocked, automaticaly block network of this prefix length (64 is safe, use 48 or 32 to autoblock wider networks - attackers likely have more than /64 net).
+DYNFW_EXPAND_IPV6_PREFIX=64
+
+# Arguments to pass to the executable (--keep-on-exit, -v, --syslog, ...).
+DYNFW_ARGS=""

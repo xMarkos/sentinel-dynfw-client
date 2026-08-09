@@ -4,3 +4,6 @@
 *.pyc
 __pycache__
 *.egg-info/
+/env
+/etc/sentinel-fw.service
+/etc/variables

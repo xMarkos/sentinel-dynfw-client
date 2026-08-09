@@ -5,7 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] - 2026-08-09
+
+Complete rewrite and clean-up. Split into modules and added ability to implement other firewall backends in a modular way.
+
+### Added
+
+- Added support for IPv6 which now runs in a single process as the original IPv4 blocker.
+- Added argument `--ipset6`.
+- Ability to block IPv6 networks from singular address (argument `--expand-ipv6-prefix`).
+- Added dummy backend (for debugging/monitoring).
+- Added argument `--keep-on-exit` which controls if firewall tables should remain after the program ends.
+- Firewall is now completely configured automatically and no manual setup of tables, sets, chains, or rules is needed.
+- Proper parsing of sentinel data messages.
+
+### Changed
+
+- Argument `--ipset` changed to `--ipset4`.
+- Argument `--table` changed to `--nft-table`.
+- Interfacing with nftables now using python bindings and its structured JSON API instead of executing command line.
+
+### Removed
+
+- Removed iptables backend.
+- Systemd notifications (service now runs as type=exec and logs were improved to not need it).
+
+## [Unreleased] - 2024-07-30
 
 ### Added
 
