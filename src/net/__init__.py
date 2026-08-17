@@ -1,8 +1,10 @@
 import enum
+import ipaddress
 import logging
 import typing
 import warnings
-from ipaddress import (IPv4Network, IPv6Network, _BaseAddress, _BaseV4, _BaseV6, _IPAddressBase)
+
+__all__ = ['IpAddressVersion', 'IpAddressType', 'is_v4_address', 'is_v6_address', 'classify_address', 'parse_address', 'FirewallProxy', 'DummyFirewallProxy']
 
 
 class IpAddressVersion(enum.Enum):
@@ -17,9 +19,17 @@ class IpAddressType(enum.Enum):
 	Network = enum.auto()
 
 
-def classify_address(address: _IPAddressBase) -> typing.Tuple[IpAddressVersion, IpAddressType, _IPAddressBase]:
-	v = IpAddressVersion(address.version) if isinstance(address, (_BaseV4, _BaseV6)) else IpAddressVersion.Unknown
-	t = IpAddressType.Address if isinstance(address, _BaseAddress) else IpAddressType.Network
+def is_v4_address(address: ipaddress._IPAddressBase) -> typing.TypeGuard[ipaddress.IPv4Address | ipaddress.IPv4Network]:
+	return isinstance(address, ipaddress._BaseV4)
+
+
+def is_v6_address(address: ipaddress._IPAddressBase) -> typing.TypeGuard[ipaddress.IPv6Address | ipaddress.IPv6Network]:
+	return isinstance(address, ipaddress._BaseV6)
+
+
+def classify_address(address: ipaddress._IPAddressBase) -> tuple[IpAddressVersion, IpAddressType, ipaddress._IPAddressBase]:
+	v = IpAddressVersion(address.version) if isinstance(address, (ipaddress._BaseV4, ipaddress._BaseV6)) else IpAddressVersion.Unknown
+	t = IpAddressType.Address if isinstance(address, ipaddress._BaseAddress) else IpAddressType.Network
 	return v, t, address
 
 
@@ -27,29 +37,29 @@ def parse_address(
     address: str | bytes | int,
     *,
     expand_v6_prefix: int | None = None,
-) -> typing.Tuple[IpAddressVersion, IpAddressType, _IPAddressBase | None]:
+) -> ipaddress.IPv4Address | ipaddress.IPv4Network | ipaddress.IPv6Address | ipaddress.IPv6Network | None:
 
 	try:
-		result = IPv6Network(address, False)
+		result = ipaddress.IPv6Network(address, False)
 		if expand_v6_prefix and expand_v6_prefix < result.prefixlen:
-			result = IPv6Network((result.network_address.compressed, expand_v6_prefix), False)
+			result = ipaddress.IPv6Network((result.network_address.compressed, expand_v6_prefix), False)
 		elif result.prefixlen == result.max_prefixlen:
 			result = result.network_address
 
-		return classify_address(result)
+		return result
 	except:
 		pass
 
 	try:
-		result = IPv4Network(address, False)
+		result = ipaddress.IPv4Network(address, False)
 		if result.prefixlen == result.max_prefixlen:
 			result = result.network_address
 
-		return classify_address(result)
+		return result
 	except:
 		pass
 
-	return IpAddressVersion.Unknown, IpAddressType.Unknown, None
+	return None
 
 
 class FirewallProxy(typing.Protocol):
@@ -60,13 +70,13 @@ class FirewallProxy(typing.Protocol):
 	def cleanup(self):
 		...
 
-	def add_entries(self, entries: typing.Iterable[_IPAddressBase]):
+	def add_entries(self, entries: typing.Iterable[ipaddress._IPAddressBase]):
 		...
 
-	def remove_entries(self, entries: typing.Iterable[_IPAddressBase]):
+	def remove_entries(self, entries: typing.Iterable[ipaddress._IPAddressBase]):
 		...
 
-	def set_entries(self, entries: typing.Iterable[_IPAddressBase]):
+	def set_entries(self, entries: typing.Iterable[ipaddress._IPAddressBase]):
 		...
 
 
@@ -83,11 +93,11 @@ class DummyFirewallProxy:
 	def cleanup(self):
 		self.__logger.info('cleanup()')
 
-	def add_entries(self, entries: typing.Iterable[_IPAddressBase]):
+	def add_entries(self, entries: typing.Iterable[ipaddress._IPAddressBase]):
 		self.__logger.info('add_entries(%d)', len([*entries]))
 
-	def remove_entries(self, entries: typing.Iterable[_IPAddressBase]):
+	def remove_entries(self, entries: typing.Iterable[ipaddress._IPAddressBase]):
 		self.__logger.info('remove_entries(%d)', len([*entries]))
 
-	def set_entries(self, entries: typing.Iterable[_IPAddressBase]):
+	def set_entries(self, entries: typing.Iterable[ipaddress._IPAddressBase]):
 		self.__logger.info('set_entries(%d)', len([*entries]))

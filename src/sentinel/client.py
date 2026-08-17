@@ -1,16 +1,16 @@
+import dataclasses
+import enum
 import logging
 import os
 import time
 import typing
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
-from enum import Enum
 
 import msgspec
 import zmq
 import zmq.auth
-from zmq.utils.monitor import recv_monitor_message
+import zmq.utils.monitor
 
 SENTINEL_PUB_CERT_URL = "https://repo.turris.cz/sentinel/dynfw.pub"
 SENTINEL_SERVER_ADDRESS = 'sentinel.turris.cz'
@@ -20,6 +20,18 @@ TYPE_MSG_DELTA = 'dynfw/delta'
 TYPE_MSG_FULL = 'dynfw/list'
 
 _logger = logging.getLogger(__name__)
+
+__all__ = [
+    'ZmqSentinelClient',
+    'DynfwFullList',
+    'DynfwDelta',
+    'DynfwListBase',
+    'DeltaDirection',
+    'InvalidMsgError',
+    'parse_msg',
+    'download_server_certificate',
+    'create_zmq_certificate',
+]
 
 
 def create_zmq_certificate(dir_path: str) -> tuple[bytes, bytes]:
@@ -74,24 +86,24 @@ class InvalidMsgError(Exception):
 	pass
 
 
-class DeltaDirection(Enum):
+class DeltaDirection(enum.Enum):
 	Positive = 'positive'
 	Negative = 'negative'
 
 
-@dataclass
+@dataclasses.dataclass
 class DynfwListBase:
 	ts: int
 	serial: int
 
 
-@dataclass
+@dataclasses.dataclass
 class DynfwDelta(DynfwListBase):
 	delta: DeltaDirection
 	ip: str
 
 
-@dataclass
+@dataclasses.dataclass
 class DynfwFullList(DynfwListBase):
 	version: int
 	list: list[str]
@@ -154,7 +166,7 @@ class ZmqSentinelClient:
 					continue
 
 				if monitor_socket in events:
-					m = recv_monitor_message(monitor_socket, zmq.NOBLOCK)
+					m = zmq.utils.monitor.recv_monitor_message(monitor_socket, zmq.NOBLOCK)
 					event_name = zmq_event_types.get(m['event'], None) or f"UNKNOWN_EVENT_{m['event']}"
 					self.__logger.info('Monitor: %s: %s', event_name, m['value'])
 					continue

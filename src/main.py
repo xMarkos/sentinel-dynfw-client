@@ -3,21 +3,35 @@ import logging.handlers
 import time
 from typing import Iterable
 
-from net import DummyFirewallProxy, FirewallProxy, parse_address
+from net import DummyFirewallProxy, FirewallProxy, is_v6_address, parse_address
+from net.collections import IPv6Counter
 from net.nftables import NftablesFirewallProxy
 from sentinel.client import (SENTINEL_PUB_CERT_URL, SENTINEL_SERVER_ADDRESS, SENTINEL_SERVER_PORT, DeltaDirection, DynfwDelta, DynfwFullList, DynfwListBase,
                              ZmqSentinelClient, create_zmq_certificate, download_server_certificate)
 
 
-def parse_addresses(addresses: Iterable[str], expand_v6_prefix: int | None = None):
-	for address in addresses:
-		_, _, a = parse_address(address, expand_v6_prefix=expand_v6_prefix)
-		if a is not None:
-			yield a
-
-
 def main(client: ZmqSentinelClient, fw: FirewallProxy, *, keep_on_exit=False, expand_ipv6_prefix: int | None = None):
+	counter = IPv6Counter()
 	fw.init_firewall(drop_existing=True)
+
+	def sanitize_addresses(adding: bool, addresses: Iterable[str]):
+		for address in addresses:
+			a = parse_address(address, expand_v6_prefix=expand_ipv6_prefix)
+			if a is None:
+				continue
+			elif not expand_ipv6_prefix or not is_v6_address(a):
+				yield a
+			else:
+				if adding:
+					if (count := counter.increment(a)) == 1:
+						yield a
+					else:
+						logging.debug('Not adding address %s (%s); count: %s', address, a.compressed, count)
+				else:
+					if (count := counter.decrement(a)) == 0:
+						yield a
+					else:
+						logging.debug('Not removing address %s(%s); count: %s', address, a.compressed, count)
 
 	g = client.start()
 	try:
@@ -30,12 +44,13 @@ def main(client: ZmqSentinelClient, fw: FirewallProxy, *, keep_on_exit=False, ex
 
 			if isinstance(payload, DynfwListBase):
 				if isinstance(payload, DynfwFullList):
-					fw.set_entries(parse_addresses(payload.list, expand_ipv6_prefix))
+					counter.clear()
+					fw.set_entries(sanitize_addresses(True, payload.list))
 				elif isinstance(payload, DynfwDelta):
 					if payload.delta == DeltaDirection.Positive:
-						fw.add_entries(parse_addresses([payload.ip], expand_ipv6_prefix))
+						fw.add_entries(sanitize_addresses(True, [payload.ip]))
 					elif payload.delta == DeltaDirection.Negative:
-						fw.remove_entries(parse_addresses([payload.ip], expand_ipv6_prefix))
+						fw.remove_entries(sanitize_addresses(False, [payload.ip]))
 			else:
 				logging.debug('Unhandled message type=%s pytype=%s payload=%s', msg_type, type(payload), payload)
 

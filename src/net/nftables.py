@@ -1,12 +1,14 @@
+import ipaddress
 import json
 import logging
+import typing
 import warnings
-from ipaddress import IPv4Network, IPv6Network, _BaseAddress, _IPAddressBase
-from typing import Collection, Iterable, Literal
 
 import nftables
 
-from . import IpAddressVersion, classify_address
+import net
+
+__all__ = ['NftablesFirewallProxy']
 
 
 class NftablesFirewallProxy:
@@ -83,7 +85,7 @@ class NftablesFirewallProxy:
 		self.__logger.info('Dropping tables')
 		self._exec([self._make_table('delete')])
 
-	def add_entries(self, entries: Iterable[_IPAddressBase]):
+	def add_entries(self, entries: typing.Iterable[ipaddress._IPAddressBase]):
 		ipv4_addresses, ipv6_addresses = self._split_ip_addresses(entries)
 
 		self.__logger.debug('Adding %d IPv4 entries, %d IPv6 entries', len(ipv4_addresses), len(ipv6_addresses))
@@ -93,7 +95,7 @@ class NftablesFirewallProxy:
 		    self._make_elements(self._ipset_v6, 'add', ipv6_addresses),
 		])
 
-	def remove_entries(self, entries: Iterable[_IPAddressBase]):
+	def remove_entries(self, entries: typing.Iterable[ipaddress._IPAddressBase]):
 		ipv4_addresses, ipv6_addresses = self._split_ip_addresses(entries)
 
 		self.__logger.debug('Removing %d IPv4 entries, %d IPv6 entries', len(ipv4_addresses), len(ipv6_addresses))
@@ -103,7 +105,7 @@ class NftablesFirewallProxy:
 		    self._make_elements(self._ipset_v6, 'delete', ipv6_addresses),
 		])
 
-	def set_entries(self, entries: Iterable[_IPAddressBase]):
+	def set_entries(self, entries: typing.Iterable[ipaddress._IPAddressBase]):
 		ipv4_addresses, ipv6_addresses = self._split_ip_addresses(entries)
 
 		self.__logger.info('Installing %d IPv4 entries and %d IPv6 entries', len(ipv4_addresses), len(ipv6_addresses))
@@ -128,24 +130,23 @@ class NftablesFirewallProxy:
 
 		return rc, output, error
 
-	def _split_ip_addresses(self, entries: Iterable[_IPAddressBase]):
-		ipv4_addresses: list[_IPAddressBase] = []
-		ipv6_addresses: list[_IPAddressBase] = []
+	def _split_ip_addresses(self, entries: typing.Iterable[ipaddress._IPAddressBase]):
+		ipv4_addresses: list[ipaddress.IPv4Address | ipaddress.IPv4Network] = []
+		ipv6_addresses: list[ipaddress.IPv6Address | ipaddress.IPv6Network] = []
 
 		for entry in entries:
-			v, _, a = classify_address(entry)
-			if v == IpAddressVersion.IPv4:
-				ipv4_addresses.append(a)
-			elif v == IpAddressVersion.IPv6:
-				ipv6_addresses.append(a)
+			if net.is_v4_address(entry):
+				ipv4_addresses.append(entry)
+			elif net.is_v6_address(entry):
+				ipv6_addresses.append(entry)
 
 		return ipv4_addresses, ipv6_addresses
 
-	def _make_elements_impl(self, addresses: Collection[_IPAddressBase]):
+	def _make_elements_impl(self, addresses: typing.Collection[ipaddress._IPAddressBase]):
 		for address in addresses:
-			if isinstance(address, _BaseAddress):
+			if isinstance(address, ipaddress._BaseAddress):
 				yield address.compressed
-			elif isinstance(address, (IPv4Network, IPv6Network)):
+			elif isinstance(address, (ipaddress.IPv4Network, ipaddress.IPv6Network)):
 				yield {
 				    'prefix': {
 				        'addr': address.network_address.compressed,
@@ -153,7 +154,12 @@ class NftablesFirewallProxy:
 				    }
 				}
 
-	def _make_elements(self, set_name: str, op: Literal['add', 'delete'], elements: Collection[_IPAddressBase], *, skip_when_empty=True):
+	def _make_elements(self,
+	                   set_name: str,
+	                   op: typing.Literal['add', 'delete'],
+	                   elements: typing.Collection[ipaddress._IPAddressBase],
+	                   *,
+	                   skip_when_empty=True):
 		return None if skip_when_empty and (elements is None or not len(elements)) else {
 		    op: {
 		        'element': {
@@ -165,7 +171,7 @@ class NftablesFirewallProxy:
 		    }
 		}
 
-	def _make_table(self, op: Literal['add', 'delete']):
+	def _make_table(self, op: typing.Literal['add', 'delete']):
 		return {
 		    op: {
 		        'table': {
@@ -175,7 +181,7 @@ class NftablesFirewallProxy:
 		    },
 		}
 
-	def _make_drop_rule(self, op: Literal['add', 'insert'], protocol: Literal['ip', 'ip6'], set_name: str):
+	def _make_drop_rule(self, op: typing.Literal['add', 'insert'], protocol: typing.Literal['ip', 'ip6'], set_name: str):
 		return {
 		    op: {
 		        'rule': {
