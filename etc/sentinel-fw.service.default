@@ -9,7 +9,7 @@ EnvironmentFile=/opt/sentinel-fw/etc/variables
 WorkingDirectory=/opt/sentinel-fw
 RuntimeDirectory=sentinel-fw
 
-ExecStart=/opt/sentinel-fw/env/bin/python src/main.py --cache-dir ${RUNTIME_DIRECTORY} --backend nftables --nft-table ${DYNFW_NFT_TABLE} --ipset4 ${DYNFW_SET_V4} --ipset6 ${DYNFW_SET_V6} --expand-ipv6-prefix ${DYNFW_EXPAND_IPV6_PREFIX} $DYNFW_ARGS
+ExecStart=/opt/sentinel-fw/env/bin/python src/main.py --cache-dir ${RUNTIME_DIRECTORY} --backend nftables --nft-table ${DYNFW_NFT_TABLE} --ipset4 ${DYNFW_SET_V4} --ipset6 ${DYNFW_SET_V6} --expand-ipv6-prefix ${DYNFW_EXPAND_IPV6_PREFIX} --logger ${DYNFW_LOGGER} $DYNFW_ARGS
 KillSignal=SIGINT
 
 ProtectSystem=strict

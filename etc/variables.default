@@ -1,6 +1,9 @@
 # Default settings for sentinel-dynfw-client
 # (Turris Sentinel dynamic firewall client).
 
+# Logging backend: "journal", "syslog", or "console"
+DYNFW_LOGGER="journal"
+
 # Which backend to use, either "ipset" or "nftables".
 DYNFW_BACKEND="nftables"
 

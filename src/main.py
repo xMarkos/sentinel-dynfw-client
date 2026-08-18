@@ -1,5 +1,6 @@
 import logging
 import logging.handlers
+import sys
 import time
 from typing import Iterable
 
@@ -81,15 +82,25 @@ if __name__ == '__main__':
 	parser.add_argument('--ipset4', default='dynfw-block-v4', help='IP set name to push blocked IPv4s to', metavar='NAME')
 	parser.add_argument('--ipset6', default='dynfw-block-v6', help='IP set name to push blocked IPv6s to', metavar='NAME')
 	parser.add_argument('--expand-ipv6-prefix', type=int, default=64, help='Expand prefix of IPv6 addresses to block larger scale', metavar='LENGTH')
-	parser.add_argument('--syslog', action='store_true', help='Send log message to syslog')
+	parser.add_argument('--logger', choices=['console', 'journal', 'syslog'], default='console', help='Logging backend')
 	parser.add_argument('--keep-on-exit', action='store_true', help='Keeps entries when this program exits')
 	parser.add_argument('-v', '--verbose', action='store_true', help='Increase output verbosity')
 	args = parser.parse_args()
 
-	if args.syslog:
+	if args.logger == 'syslog':
 		handler = logging.handlers.SysLogHandler(address='/dev/log', facility=logging.handlers.SysLogHandler.LOG_DAEMON)
 		handler.ident = 'sentinel-fw: '
-		format_str = '%(name)s: %(message)s'
+		format_str = '[%(name)s] %(message)s'
+	elif args.logger == 'journal' and sys.platform == 'linux':
+		# Note that this requires the apt package python3-systemd and venv with --system-site-packages
+		try:
+			from systemd.journal import JournalHandler
+		except:
+			print('Module systemd.journal is not available in the current context.', file=sys.stderr)
+			exit(1)
+
+		handler = JournalHandler()
+		format_str = '[%(name)s] %(levelname)s: %(message)s'
 	else:
 		handler = logging.StreamHandler()
 		format_str = '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
